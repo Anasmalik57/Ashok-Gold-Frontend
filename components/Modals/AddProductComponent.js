@@ -3,12 +3,16 @@
 import { useState } from "react";
 import { CldUploadWidget } from "next-cloudinary";
 import { FiX, FiUpload, FiCheck, FiLoader } from "react-icons/fi";
+import { API_BASE } from "@/lib/api";
+import { useRouter } from "next/navigation";
 
 const AddProductComponent = () => {
+  const router = useRouter()
   const [formData, setFormData] = useState({
     name: "",
     image: "",
     description: "",
+    active: true
   });
   const [isUploading, setIsUploading] = useState(false);
 
@@ -20,18 +24,44 @@ const AddProductComponent = () => {
     setIsUploading(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const productData = {
-      name: formData.name,
-      image: formData.image,
-      description: formData.description
-    };
-    console.log("Product added:", productData);
+    if (!formData.name || !formData.image || !formData.description) {
+      alert("Please fill name, description, and upload image");
+      return;
+    }
+    try {
+      setIsUploading(true);  // Loading sync karo upload se
+      const body = {
+        productName: formData.name.trim(),  // Backend field name
+        image: formData.image,
+        description: formData.description.trim(),
+        status: formData.active ? "active" : "inactive"  // Backend enum
+      };
+      const res = await fetch(`${API_BASE}/products`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Save failed");  // Backend error catch
+      const { data } = await res.json();
+      console.log("Product added:", data);
+      alert("Product created successfully!");  // Or redirect to list: useRouter se push('/products')
+      // Reset form
+      setFormData({ name: "", image: "", description: "", active: true });
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    } finally {
+      setIsUploading(false);
+      router.push("/admin/products")
+    }
   };
 
   const handleCancel = () => {
+    router.push("/admin/products")
     console.log("Add product cancelled");
+    setFormData({ name: "", image: "", description: "", active: true });  // Reset on cancel
   };
 
   const removeImage = (e) => {
@@ -126,6 +156,19 @@ const AddProductComponent = () => {
             <label className="block text-sm font-semibold text-gray-700">Description</label>
             <textarea rows={4}  value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value, })) } placeholder="Enter product description..." className="w-full px-4 py-3.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 bg-gray-50/50 text-gray-900 placeholder:text-gray-400 resize-none" />
           </div>
+          {/* Description div ke baad */}
+          <div className="flex items-center gap-3 p-4 bg-gray-50/50 rounded-xl border border-gray-100">
+            <input
+              type="checkbox"
+              id="active"
+              checked={formData.active}
+              onChange={(e) => setFormData((prev) => ({ ...prev, active: e.target.checked }))}
+              className="size-4 text-amber-500 border-gray-300 rounded focus:ring-2 focus:ring-amber-500/50 transition-all duration-200"
+            />
+            <label htmlFor="active" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Set as Active
+            </label>
+          </div>
 
           {/* Buttons */}
           <div className="flex justify-end gap-3 pt-6">
@@ -139,7 +182,7 @@ const AddProductComponent = () => {
             <button
               type="submit"
               className="px-6 py-3 bg-linear-to-r from-amber-500 to-yellow-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-yellow-600 focus:outline-none focus:ring-2 focus:ring-amber-500/50 transition-all duration-200 flex items-center gap-2 shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 disabled:opacity-60 disabled:cursor-not-allowed"
-              disabled={isUploading}
+              disabled={isUploading || !formData.image || !formData.description}
             >
               <FiCheck className="w-4 h-4" />
               <span>Save Product</span>

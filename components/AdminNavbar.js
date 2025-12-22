@@ -62,12 +62,12 @@ const AdminNavbar = () => {
           {/* Right Actions */}
           <div className="flex items-center space-x-3 sm:space-x-5">
             {/* Phone Icon */}
-            <button 
+            {/* <button 
               className="p-2 text-gray-600 hover:text-yellow-500 transition-colors rounded-full hover:bg-gray-50"
               aria-label="Phone"
             >
               <Phone className="w-5 h-5" />
-            </button>
+            </button> */}
 
             {/* Notification Bell */}
             <button 
@@ -78,14 +78,14 @@ const AdminNavbar = () => {
             </button>
 
             {/* User Profile */}
-            <div className="flex items-center space-x-2 cursor-pointer group">
+            <div className="flex items-center space-x-2 cursor-pointer group rounded-lg p-2 py-1 shadow-lg shadow-amber-500/20 border border-amber-400/80 ">
               <img
-                src="https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150"
+                src="/avatar.png"
                 alt="Payal Sharma"
                 className="w-9 h-9 rounded-full object-cover ring-2 ring-transparent group-hover:ring-yellow-400 transition-all"
               />
               <span className="hidden sm:block text-sm font-medium text-gray-700 group-hover:text-yellow-600 transition-colors">
-                Payal Sharma
+                Admin
               </span>
             </div>
           </div>

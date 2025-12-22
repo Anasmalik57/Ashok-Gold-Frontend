@@ -123,6 +123,23 @@ const AddProductModal = ({
             </CldUploadWidget>
           </div>
 
+          {/* Image Upload ke baad, Active Checkbox se pehle */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Product Description
+            </label>
+            <textarea
+              value={formData.description || ""} // Default empty
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              className="w-full px-4 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 transition-all duration-200 bg-gray-50/50 text-gray-900 placeholder:text-gray-400 resize-vertical"
+              placeholder="Enter product description..."
+              rows={4} // Height adjust
+              required // Optional, but good UX
+            />
+          </div>
+
           {/* Active Checkbox */}
           <div className="flex items-center gap-3 p-4 bg-gray-50/50 rounded-xl border border-gray-100">
             <input
@@ -153,7 +170,7 @@ const AddProductModal = ({
             <button
               onClick={handleSave}
               className="flex-1 px-4 py-3 text-sm cursor-pointer bg-linear-to-r from-amber-500 to-yellow-500 text-white rounded-xl hover:from-amber-600 hover:to-yellow-600 transition-all duration-200 font-semibold shadow-lg shadow-amber-500/30 hover:shadow-xl hover:shadow-amber-500/40 disabled:opacity-60 disabled:cursor-not-allowed"
-              disabled={isUploading}
+              disabled={isUploading || !formData.image || !formData.description}
             >
               {editingProduct ? "Update" : "Create"}
             </button>

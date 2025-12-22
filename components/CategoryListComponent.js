@@ -1,93 +1,125 @@
-'use client';
+"use client";
+import { FiEdit, FiTrash2, FiSearch, FiPlus} from "react-icons/fi";
+import AddCategoryModal from "./Modals/AddCategoryModal";
+import { useState, useEffect } from "react";
+import { API_BASE } from "@/lib/api";
 
-import { useState } from 'react';
-import { FiEdit, FiTrash2, FiSearch, FiPlus, FiFilter } from 'react-icons/fi';
-import AddCategoryModal from './Modals/AddCategoryModal';
-
-// Import data from the same source
-const { categories: initialCategories } = require('@/components/Data/data');
 
 const CategoryListComponent = () => {
-  const [categories, setCategories] = useState(initialCategories);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [formData, setFormData] = useState({ name: '', image: '', active: true });
+  const [formData, setFormData] = useState({ name: "", image: "", active: true });
+  // ========================================== //
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch(`${API_BASE}/categories`);
+      if (!res.ok) throw new Error("Fetch failed");
+      const { data } = await res.json(); // total add kiya if backend se aata hai
+      const mapped = data.map((cat) => ({
+        id: cat._id,
+        name: cat.categoryName,
+        image: cat.image,
+        active: cat.status === "active",
+      }));
+      setCategories(mapped);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+  // ========================================== //
 
   // Filter categories based on search and status
-  const filteredCategories = categories.filter(category => {
-    const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'active' && category.active) ||
-      (filterStatus === 'inactive' && !category.active);
+  const filteredCategories = categories.filter((category) => {
+    const matchesSearch = category.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      filterStatus === "all" ||
+      (filterStatus === "active" && category.active) ||
+      (filterStatus === "inactive" && !category.active);
     return matchesSearch && matchesStatus;
   });
-
-  const toggleStatus = (id) => {
-    setCategories(categories.map(cat => 
-      cat.id === id ? { ...cat, active: !cat.active } : cat
-    ));
-  };
 
   const handleEdit = (category) => {
     setEditingCategory(category);
     setFormData({
       name: category.name,
       image: category.image,
-      active: category.active
+      active: category.active,
     });
     setShowAddModal(true);
   };
 
-  const handleDelete = (id) => {
-    if (confirm('Are you sure you want to delete this category?')) {
-      setCategories(categories.filter(cat => cat.id !== id));
+  const handleDelete = async (id) => {
+    if (confirm("Are you sure?")) {
+      try {
+        const res = await fetch(`${API_BASE}/categories/${id}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) throw new Error("Delete failed");
+        fetchCategories(); // Refetch
+      } catch (err) {
+        alert(err.message);
+      }
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.name || !formData.image) {
-      alert('Please fill in all fields');
+      alert("Please fill in all fields");
       return;
     }
-
-    const newCategory = {
-      id: editingCategory ? editingCategory.id : Date.now(),
-      name: formData.name,
-      image: formData.image,
-      active: formData.active
-    };
-
-    if (editingCategory) {
-      setCategories(categories.map(cat => 
-        cat.id === editingCategory.id ? newCategory : cat
-      ));
-    } else {
-      setCategories([...categories, newCategory]);
+    try {
+      const body = {
+        categoryName: formData.name,
+        image: formData.image,
+        status: formData.active ? "active" : "inactive",
+      };
+      let res;
+      if (editingCategory) {
+        res = await fetch(`${API_BASE}/categories/${editingCategory.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } else {
+        res = await fetch(`${API_BASE}/categories`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      }
+      if (!res.ok) throw new Error("Save failed");
+      fetchCategories();
+      closeModal();
+    } catch (err) {
+      alert(err.message);
     }
-
-    console.log(newCategory)
-
-    closeModal();
   };
 
   const closeModal = () => {
     setShowAddModal(false);
     setEditingCategory(null);
-    setFormData({ name: '', image: '', active: true });
+    setFormData({ name: "", image: "", active: true });
   };
 
   const openAddModal = () => {
     setEditingCategory(null);
-    setFormData({ name: '', image: '', active: true });
+    setFormData({ name: "", image: "", active: true });
     setShowAddModal(true);
-  };
-
-  const stats = {
-    total: categories.length,
-    active: categories.filter(c => c.active).length,
-    inactive: categories.filter(c => !c.active).length
   };
 
   return (
@@ -95,8 +127,12 @@ const CategoryListComponent = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Category Management</h1>
-          <p className="text-gray-600">Manage your product categories efficiently</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Category Management
+          </h1>
+          <p className="text-gray-600">
+            Manage your product categories efficiently
+          </p>
         </div>
 
         {/* Main Card */}
@@ -120,38 +156,38 @@ const CategoryListComponent = () => {
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
                   <button
-                    onClick={() => setFilterStatus('all')}
+                    onClick={() => setFilterStatus("all")}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                      filterStatus === 'all' 
-                        ? 'bg-white text-gray-900 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-900'
+                      filterStatus === "all"
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     All
                   </button>
                   <button
-                    onClick={() => setFilterStatus('active')}
+                    onClick={() => setFilterStatus("active")}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                      filterStatus === 'active' 
-                        ? 'bg-white text-green-600 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-900'
+                      filterStatus === "active"
+                        ? "bg-white text-green-600 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Active
                   </button>
                   <button
-                    onClick={() => setFilterStatus('inactive')}
+                    onClick={() => setFilterStatus("inactive")}
                     className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                      filterStatus === 'inactive' 
-                        ? 'bg-white text-red-600 shadow-sm' 
-                        : 'text-gray-600 hover:text-gray-900'
+                      filterStatus === "inactive"
+                        ? "bg-white text-red-600 shadow-sm"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Inactive
                   </button>
                 </div>
 
-                <button 
+                <button
                   onClick={openAddModal}
                   className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors duration-200 flex items-center gap-2 shadow-sm hover:shadow-md"
                 >
@@ -164,12 +200,19 @@ const CategoryListComponent = () => {
 
             {/* Results Count */}
             <p className="text-sm text-gray-600">
-              Showing <span className="font-semibold text-gray-900">{filteredCategories.length}</span> of {categories.length} categories
+              Showing{" "}
+              <span className="font-semibold text-gray-900">
+                {filteredCategories.length}
+              </span>{" "}
+              of {categories.length} categories
             </p>
           </div>
 
           {/* Table */}
           <div className="overflow-x-auto">
+            {loading && <div className="p-8 text-center">Loading...</div>}
+            {error && <div className="p-8 text-center text-red-500">{error}</div>}
+            {!loading && !error && (
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -193,14 +236,21 @@ const CategoryListComponent = () => {
                     <td colSpan="4" className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center text-gray-400">
                         <FiSearch className="w-12 h-12 mb-3" />
-                        <p className="text-lg font-medium text-gray-900">No categories found</p>
-                        <p className="text-sm mt-1">Try adjusting your search or filter criteria</p>
+                        <p className="text-lg font-medium text-gray-900">
+                          No categories found
+                        </p>
+                        <p className="text-sm mt-1">
+                          Try adjusting your search or filter criteria
+                        </p>
                       </div>
                     </td>
                   </tr>
                 ) : (
                   filteredCategories.map((category) => (
-                    <tr key={category.id} className="hover:bg-gray-50 transition-colors duration-150">
+                    <tr
+                      key={category.id}
+                      className="hover:bg-gray-50 transition-colors duration-150"
+                    >
                       <td className="px-4 md:px-6 py-4">
                         <div className="flex items-center gap-3">
                           <img
@@ -208,7 +258,9 @@ const CategoryListComponent = () => {
                             src={category.image}
                             alt={category.name}
                           />
-                          <div className="text-sm font-semibold text-gray-900">{category.name}</div>
+                          <div className="text-sm font-semibold text-gray-900">
+                            {category.name}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 md:px-6 py-4 hidden sm:table-cell">
@@ -219,17 +271,15 @@ const CategoryListComponent = () => {
                         />
                       </td>
                       <td className="px-4 md:px-6 py-4">
-                        <button
-                          onClick={() => toggleStatus(category.id)}
+                        <div
                           className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 ${
                             category.active
-                              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                              : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              ? "bg-green-100 text-green-700 hover:bg-green-200"
+                              : "bg-red-100 text-red-700 hover:bg-red-200"
                           }`}
                         >
-                          
-                          {category.active ? 'Active' : 'Inactive'}
-                        </button>
+                          {category.active ? "Active" : "Inactive"}
+                        </div>
                       </td>
                       <td className="px-4 md:px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
@@ -253,13 +303,19 @@ const CategoryListComponent = () => {
                   ))
                 )}
               </tbody>
-            </table>
+            </table>)}
           </div>
         </div>
 
         {/* Add/Edit Modal */}
         {showAddModal && (
-         <AddCategoryModal  handleSave={handleSave} closeModal={closeModal} formData={formData} setFormData={setFormData} editingCategory={editingCategory} />
+          <AddCategoryModal
+            handleSave={handleSave}
+            closeModal={closeModal}
+            formData={formData}
+            setFormData={setFormData}
+            editingCategory={editingCategory}
+          />
         )}
       </div>
 
