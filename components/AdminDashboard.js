@@ -30,17 +30,16 @@ const AdminDashboard = () => {
       setLoading(true);
       setError(null);
 
-      // Parallel fetches for efficiency
+      // Parallel fetches for efficiency (fetch all banners once, filter client-side)
       const [
         categoriesRes,
         productsRes,
-        allBannersRes,
-        allEnquiriesRes,
+        allBannersRes,  // All banners (no query param)
+        enquiriesRes,   // Fixed: Separate var for enquiries
       ] = await Promise.all([
         fetch(`${API_BASE}/categories`), // All categories
         fetch(`${API_BASE}/products`), // All products
-        fetch(`${API_BASE}/banners?status=active`), // Active banners
-        fetch(`${API_BASE}/banners`), // All banners
+        fetch(`${API_BASE}/banners`), // All banners (for filtering active/inactive)
         fetch(`${API_BASE}/enquiries`), // All enquiries for trend
       ]);
 
@@ -48,7 +47,7 @@ const AdminDashboard = () => {
         !categoriesRes.ok ||
         !productsRes.ok ||
         !allBannersRes.ok ||
-        !allEnquiriesRes.ok
+        !enquiriesRes.ok
       ) {
         throw new Error("One or more fetches failed");
       }
@@ -62,13 +61,15 @@ const AdminDashboard = () => {
         categoriesRes.json(),
         productsRes.json(),
         allBannersRes.json(),
-        allEnquiriesRes.json(),
+        enquiriesRes.json(),  // Fixed: Now correct response
       ]);
 
-      // Logic: Filter karke count nikalo
+      // Logic: Filter karke count nikalo (from all banners)
       const allBanners = allBannersData.data || allBannersData;
       const activeBannersCount = allBanners.filter(banner => banner.status === 'active').length;
       const inactiveBannersCount = allBanners.filter(banner => banner.status === 'inactive').length;
+
+      console.log('Banners Debug:', { active: activeBannersCount, inactive: inactiveBannersCount, total: allBanners.length }); // Debug: Remove in prod
 
       // Set counts
       setCategoriesCount(categories.total || categories.data.length);
@@ -90,8 +91,10 @@ const AdminDashboard = () => {
         fullDate: new Date(enq.dateOfEnquiry), // For week calc
       }));
       setEnquiries(mappedEnquiries);
+      console.log('Enquiries Debug:', { count: mappedEnquiries.length }); // Debug: Remove in prod
     } catch (err) {
       setError(err.message);
+      console.error('Fetch Error:', err); // Debug
     } finally {
       setLoading(false);
     }
@@ -102,48 +105,49 @@ const AdminDashboard = () => {
     fetchDashboardData();
   }, []); // Initial fetch on mount
   // =============================================================================
+
+  // Fixed: Inquiry Trend Calculation (Monday week start, proper indexing)
   useEffect(() => {
     if (enquiries.length > 0) {
-      const now = new Date("2025-12-22"); // Current date from prompt
+      const now = new Date("2025-12-22"); // Monday
+      const dayOfWeek = now.getDay(); // 1 for Monday
       const thisWeekStart = new Date(now);
-      thisWeekStart.setDate(now.getDate() - now.getDay()); // Monday start
-      const lastWeekStart = new Date(thisWeekStart);
-      lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+      thisWeekStart.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1)); // Monday start (Dec 22 for this date)
+      const lastWeekStart = new Date(thisWeekStart.getTime() - 7 * 24 * 60 * 60 * 1000); // Previous Monday
 
-      const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]; // idx 0=Mon
 
       const thisWeekCounts = new Array(7).fill(0);
       const lastWeekCounts = new Array(7).fill(0);
 
       enquiries.forEach((enq) => {
         const enqDate = enq.fullDate;
-        const dayIndex = enqDate.getDay(); // 0=Sun, 1=Mon...
+        // Adjusted index: Mon=0, Tue=1, ..., Sun=6
+        const adjustedDayIndex = (enqDate.getDay() + 6) % 7; // getDay(): Sun=0 ->6, Mon=1->0, etc.
 
-        if (
-          enqDate >= thisWeekStart &&
-          enqDate < new Date(thisWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-        ) {
-          thisWeekCounts[dayIndex]++; // Adjust if Mon=0
-        } else if (
-          enqDate >= lastWeekStart &&
-          enqDate < new Date(lastWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000)
-        ) {
-          lastWeekCounts[dayIndex]++;
+        const thisWeekEnd = new Date(thisWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const lastWeekEnd = new Date(lastWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+        if (enqDate >= thisWeekStart && enqDate < thisWeekEnd) {
+          thisWeekCounts[adjustedDayIndex]++;
+        } else if (enqDate >= lastWeekStart && enqDate < lastWeekEnd) {
+          lastWeekCounts[adjustedDayIndex]++;
         }
       });
 
       const computedData = days.map((day, idx) => ({
         day,
-        thisWeek: thisWeekCounts[(idx + 1) % 7], // Adjust index if needed (Mon=0)
-        lastWeek: lastWeekCounts[(idx + 1) % 7],
+        thisWeek: thisWeekCounts[idx], // Direct match (no %7 adjustment needed)
+        lastWeek: lastWeekCounts[idx],
       }));
       setLineChartData(computedData);
+      console.log('LineChart Debug:', computedData); // Debug: Remove in prod
     }
   }, [enquiries]);
 
   // ============================================================================
 
-  // ApexCharts Line Chart Configuration
+  // ApexCharts Line Chart Configuration (fallback if empty)
   const lineChartOptions = {
     chart: {
       type: "area",
@@ -164,7 +168,7 @@ const AdminDashboard = () => {
       },
     },
     xaxis: {
-      categories: lineChartData.map((d) => d.day),
+      categories: lineChartData.length > 0 ? lineChartData.map((d) => d.day) : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], // Fallback empty
       labels: { style: { colors: "#9ca3af", fontSize: "10px" } },
       axisBorder: { show: false },
       axisTicks: { show: false },
@@ -191,8 +195,8 @@ const AdminDashboard = () => {
   };
 
   const lineChartSeries = [
-    { name: "This Week", data: lineChartData.map((d) => d.thisWeek) },
-    { name: "Last Week", data: lineChartData.map((d) => d.lastWeek) },
+    { name: "This Week", data: lineChartData.length > 0 ? lineChartData.map((d) => d.thisWeek) : new Array(7).fill(0) }, // Fallback 0s
+    { name: "Last Week", data: lineChartData.length > 0 ? lineChartData.map((d) => d.lastWeek) : new Array(7).fill(0) },
   ];
 
   // ApexCharts Bar Chart Configuration
@@ -329,6 +333,14 @@ const AdminDashboard = () => {
               />
             )}
           </div>
+          <div className="flex justify-around text-[10px] mt-2">
+            <span className="flex items-center text-blue-600 font-medium">
+              Active: {activeBanners}
+            </span>
+            <span className="flex items-center text-red-600 font-medium">
+              Inactive: {inactiveBanners}
+            </span>
+          </div>
         </div>
 
         {/* Inquiries Trend Chart Card */}
@@ -337,13 +349,15 @@ const AdminDashboard = () => {
             Inquiries Trend
           </h3>
           <div className="h-40 sm:h-48 md:h-40">
-            {isMounted && (
+            {isMounted && lineChartData.length > 0 ? (
               <Chart
                 options={lineChartOptions}
                 series={lineChartSeries}
                 type="area"
                 height="100%"
               />
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400 text-sm">No recent data</div> // Graceful empty state
             )}
           </div>
         </div>
