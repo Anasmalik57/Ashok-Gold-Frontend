@@ -104,8 +104,8 @@ const EnQuiriesListComponent = () => {
                     <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <img
-                          className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover shadow-xl border border-amber-700/80"
-                          src="/avatar.png"
+                          className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover shadow-xl border border-blue-800/80"
+                          src="/userAvatar.png"
                           alt=""
                         />
                         <div className="ml-2 sm:ml-3">
